@@ -1,0 +1,18 @@
+{
+  "Comment": "Pipeline de dados dersonLake",
+  "StartAt": "IntakeProdDB",
+  "States": {
+    "IntakeProdDB": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:sa-east-1:123456789012:stateMachine:DMS-Handler",
+        "Input": {
+          "owner": "dersonLake"
+        }
+      },
+      "Comment": "Executa pipeline de ingestão dos dados do banco de prod dersonLake para camada bronze do datalake os dados são salvos em parquet em um bucket s3",
+      "End": true
+    }
+  }
+}

@@ -1,0 +1,125 @@
+{
+    "rules": [
+        {
+            "rule-type": "selection",
+            "rule-id": "970860567",
+            "rule-name": "970860567",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "ALPHA_TABLE"
+            },
+            "rule-action": "include",
+            "filters": []
+        },
+        {
+            "rule-type": "selection",
+            "rule-id": "970860568",
+            "rule-name": "970860568",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "BETA_RECORDS"
+            },
+            "rule-action": "include",
+            "filters": []
+        },
+        {
+            "rule-type": "selection",
+            "rule-id": "970860569",
+            "rule-name": "970860569",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "GAMMA_DATA"
+            },
+            "rule-action": "include",
+            "filters": []
+        },
+        {
+            "rule-type": "selection",
+            "rule-id": "970860570",
+            "rule-name": "970860570",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "DELTA_ITEMS"
+            },
+            "rule-action": "include",
+            "filters": []
+        },
+        {
+            "rule-type": "selection",
+            "rule-id": "970860571",
+            "rule-name": "970860571",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "EPSILON_LIST"
+            },
+            "rule-action": "include",
+            "filters": []
+        },
+        {
+            "rule-type": "selection",
+            "rule-id": "970860572",
+            "rule-name": "970860572",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "ZETA_INFO"
+            },
+            "rule-action": "include",
+            "filters": []
+        },
+        {
+            "rule-type": "selection",
+            "rule-id": "970860573",
+            "rule-name": "970860573",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "ETA_STORE"
+            },
+            "rule-action": "include",
+            "filters": []
+        },
+        {
+            "rule-type": "selection",
+            "rule-id": "970860574",
+            "rule-name": "970860574",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "THETA_SET"
+            },
+            "rule-action": "include",
+            "filters": []
+        },
+        {
+            "rule-type": "selection",
+            "rule-id": "970860575",
+            "rule-name": "970860575",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "IOTA_COLLECTION"
+            },
+            "rule-action": "include",
+            "filters": []
+        },
+        {
+            "rule-type": "selection",
+            "rule-id": "970860576",
+            "rule-name": "970860576",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "KAPPA_REGISTRY"
+            },
+            "rule-action": "include",
+            "filters": []
+        },
+        {
+            "rule-type": "selection",
+            "rule-id": "970860577",
+            "rule-name": "970860577",
+            "object-locator": {
+                "schema-name": "derson_db",
+                "table-name": "LAMBDA_RELATION"
+            },
+            "rule-action": "include",
+            "filters": []
+        }
+    ]
+}

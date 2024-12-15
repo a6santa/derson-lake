@@ -1,0 +1,351 @@
+{
+    "Comment": "Step Functions handling with error in DMS",
+    "StartAt": "Instace Handling",
+    "States": {
+      "Instace Handling": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.step",
+            "StringEquals": "instance_handling",
+            "Next": "Delete Instance"
+          },
+          {
+            "Variable": "$.step",
+            "StringEquals": "task_creation_handling",
+            "Next": "Delete Task Creation"
+          },
+          {
+            "Variable": "$.step",
+            "StringEquals": "task_start_handling",
+            "Next": "Start Task Running"
+          }
+        ]
+      },
+      "Delete Task Creation": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+          "Payload": {
+            "step": "delete_task",
+            "owner.$": "$.owner"
+          }
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException",
+              "Lambda.TooManyRequestsException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "Next": "Wait deleting task",
+        "Catch": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "Next": "Create Task"
+          }
+        ],
+        "ResultPath": "$.Payload"
+      },
+      "Wait deleting task": {
+        "Type": "Wait",
+        "Seconds": 300,
+        "Next": "Create Task"
+      },
+      "Create Task": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+          "Payload": {
+            "step": "create_replication_task",
+            "owner.$": "$.owner"
+          }
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "IntervalSeconds": 30,
+            "MaxAttempts": 2,
+            "BackoffRate": 1
+          }
+        ],
+        "Next": "Wait task two minutes",
+        "ResultPath": "$.Payload"
+      },
+      "Wait task two minutes": {
+        "Type": "Wait",
+        "Seconds": 120,
+        "Next": "Check Status Task Creation"
+      },
+      "Check Status Task Creation": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+          "Payload": {
+            "step": "check_replication_task_status",
+            "owner.$": "$.owner"
+          }
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException",
+              "Lambda.TooManyRequestsException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "Next": "Task Creation Status",
+        "ResultPath": "$.Payload"
+      },
+      "Task Creation Status": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.Payload.Payload.response",
+            "StringEquals": "ready",
+            "Next": "Success Task Handling"
+          },
+          {
+            "Variable": "$.Payload.Payload.response",
+            "StringEquals": "failed",
+            "Next": "Fail Task Handling"
+          }
+        ],
+        "Default": "Wait task creation one minute"
+      },
+      "Wait task creation one minute": {
+        "Type": "Wait",
+        "Seconds": 60,
+        "Next": "Check Status Task Creation"
+      },
+      "Success Task Handling": {
+        "Type": "Succeed"
+      },
+      "Delete Instance": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+          "Payload": {
+            "step": "delete_instance",
+            "owner.$": "$.owner"
+          }
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException",
+              "Lambda.TooManyRequestsException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "Next": "Wait deleting instance",
+        "Catch": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "Next": "Create Instance",
+            "ResultPath": "$.error"
+          }
+        ],
+        "ResultPath": "$.Payload"
+      },
+      "Wait deleting instance": {
+        "Type": "Wait",
+        "Seconds": 720,
+        "Next": "Create Instance"
+      },
+      "Create Instance": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+          "Payload": {
+            "step": "create_instance",
+            "owner.$": "$.owner"
+          }
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "IntervalSeconds": 300,
+            "MaxAttempts": 2,
+            "BackoffRate": 1
+          }
+        ],
+        "Next": "Wait instance twelve minutes",
+        "ResultPath": "$.Payload"
+      },
+      "Wait instance twelve minutes": {
+        "Type": "Wait",
+        "Seconds": 720,
+        "Next": "Check Status Instance"
+      },
+      "Check Status Instance": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+          "Payload": {
+            "step": "check_instance_status",
+            "owner.$": "$.owner"
+          }
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException",
+              "Lambda.TooManyRequestsException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "Next": "Instace Status",
+        "ResultPath": "$.Payload"
+      },
+      "Instace Status": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.Payload.Payload.response",
+            "StringEquals": "available",
+            "Next": "Success Instance Handling"
+          },
+          {
+            "Variable": "$.Payload.Payload.response",
+            "StringEquals": "failed",
+            "Next": "Failed Instance Handling"
+          }
+        ],
+        "Default": "Wait instance two minutes"
+      },
+      "Wait instance two minutes": {
+        "Type": "Wait",
+        "Seconds": 120,
+        "Next": "Check Status Instance"
+      },
+      "Success Instance Handling": {
+        "Type": "Succeed"
+      },
+      "Failed Instance Handling": {
+        "Type": "Fail"
+      },
+      "Fail Task Handling": {
+        "Type": "Fail"
+      },
+      "Start Task Running": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+          "Payload": {
+            "step": "start_replication_task",
+            "owner.$": "$.owner"
+          }
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException",
+              "Lambda.TooManyRequestsException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "Next": "Wait task ending",
+        "ResultPath": "$.Payload"
+      },
+      "Wait task ending": {
+        "Type": "Wait",
+        "Next": "Check Status Task Running",
+        "SecondsPath": "$.time"
+      },
+      "Check Status Task Running": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+          "Payload": {
+            "step": "check_replication_task_status",
+            "owner.$": "$.owner"
+          }
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException",
+              "Lambda.TooManyRequestsException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "Next": "Task Running Status",
+        "ResultPath": "$.Payload"
+      },
+      "Task Running Status": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.Payload.Payload.response",
+            "StringEquals": "stopped",
+            "Next": "Success Task Running"
+          },
+          {
+            "Variable": "$.Payload.Payload.response",
+            "StringEquals": "failed",
+            "Next": "Fail Task Running Handling"
+          }
+        ],
+        "Default": "Wait task running ten minutes"
+      },
+      "Success Task Running": {
+        "Type": "Succeed"
+      },
+      "Wait task running ten minutes": {
+        "Type": "Wait",
+        "Seconds": 600,
+        "Next": "Check Status Task Running"
+      },
+      "Fail Task Running Handling": {
+        "Type": "Fail"
+      }
+    }
+  }

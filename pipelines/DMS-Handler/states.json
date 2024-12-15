@@ -1,0 +1,389 @@
+{
+  "Comment": "State Machine to handle DMS ingestions",
+  "StartAt": "Create Replication Instance",
+  "States": {
+    "Create Replication Instance": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+        "Payload": {
+          "step": "create_instance",
+          "owner.$": "$.owner"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Wait for instance creation",
+      "ResultPath": null
+    },
+    "Wait for instance creation": {
+      "Type": "Wait",
+      "Seconds": 5,
+      "Next": "Instance Status"
+    },
+    "Instance Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+        "Payload": {
+          "step": "check_instance_status",
+          "owner.$": "$.owner"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Check Instance Status",
+      "OutputPath": "$.Payload"
+    },
+    "Check Instance Status": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.response",
+          "StringEquals": "available",
+          "Next": "Pass - Replication Task"
+        },
+        {
+          "Variable": "$.response",
+          "StringEquals": "failed",
+          "Next": "Instance Handling"
+        }
+      ],
+      "Default": "Waiting instance"
+    },
+    "Instance Handling": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:sa-east-1:123456789012:stateMachine:DMS-ErrorHandling",
+        "Input": {
+          "owner.$": "$.owner",
+          "step": "instance_handling",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id"
+        }
+      },
+      "Next": "Pass - Replication Task",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2
+        }
+      ]
+    },
+    "Pass - Replication Task": {
+      "Type": "Pass",
+      "Next": "Create Replication Task",
+      "ResultPath": null
+    },
+    "Waiting instance": {
+      "Type": "Wait",
+      "Next": "Pass - Instance Status",
+      "Seconds": 120
+    },
+    "Pass - Instance Status": {
+      "Type": "Pass",
+      "Next": "Instance Status",
+      "ResultPath": null
+    },
+    "Create Replication Task": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+        "Payload": {
+          "step": "create_replication_task",
+          "owner.$": "$.owner",
+          "delta": true
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Wait for task creation",
+      "ResultPath": null
+    },
+    "Wait for task creation": {
+      "Type": "Wait",
+      "Seconds": 120,
+      "Next": "Task Status"
+    },
+    "Task Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+        "Payload": {
+          "step": "check_replication_task_status",
+          "owner.$": "$.owner"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "OutputPath": "$.Payload",
+      "Next": "Check Task Status"
+    },
+    "Check Task Status": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.response",
+          "StringEquals": "ready",
+          "Next": "Pass - Start Task"
+        },
+        {
+          "Variable": "$.response",
+          "StringEquals": "failed",
+          "Next": "Task Creation Handling"
+        }
+      ],
+      "Default": "Wait Task"
+    },
+    "Task Creation Handling": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:sa-east-1:123456789012:stateMachine:DMS-ErrorHandling",
+        "Input": {
+          "owner.$": "$.owner",
+          "step": "task_creation_handling",
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2
+        }
+      ],
+      "Next": "Pass - Start Task"
+    },
+    "Pass - Start Task": {
+      "Type": "Pass",
+      "Next": "Start Replication Task",
+      "ResultPath": null
+    },
+    "Wait Task": {
+      "Type": "Wait",
+      "Seconds": 60,
+      "Next": "Pass - Task Status"
+    },
+    "Pass - Task Status": {
+      "Type": "Pass",
+      "Next": "Task Status"
+    },
+    "Start Replication Task": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+        "Payload": {
+          "step": "start_replication_task",
+          "owner.$": "$.owner"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Wait Replication Task",
+      "ResultPath": null
+    },
+    "Wait Replication Task": {
+      "Type": "Wait",
+      "Seconds": 300,
+      "Next": "Waiting Task End"
+    },
+    "Waiting Task End": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+        "Payload": {
+          "step": "check_replication_task_status",
+          "owner.$": "$.owner"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "OutputPath": "$.Payload",
+      "Next": "Choice"
+    },
+    "Choice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.response",
+          "StringEquals": "failed",
+          "Next": "Task Running Handling"
+        },
+        {
+          "Variable": "$.response",
+          "StringEquals": "stopped",
+          "Next": "Pass - Delete Task"
+        }
+      ],
+      "Default": "Wait end"
+    },
+    "Task Running Handling": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync:2",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:sa-east-1:123456789012:stateMachine:DMS-ErrorHandling",
+        "Input": {
+          "owner.$": "$.owner",
+          "step": "task_start_handling",
+          "time": 3600,
+          "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2
+        }
+      ],
+      "Next": "Pass - Delete Task"
+    },
+    "Pass - Delete Task": {
+      "Type": "Pass",
+      "Next": "Delete Replication Task",
+      "ResultPath": null
+    },
+    "Wait end": {
+      "Type": "Wait",
+      "Seconds": 300,
+      "Next": "Pass - Task End"
+    },
+    "Pass - Task End": {
+      "Type": "Pass",
+      "Next": "Waiting Task End",
+      "ResultPath": null
+    },
+    "Delete Replication Task": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+        "Payload": {
+          "step": "delete_task",
+          "owner.$": "$.owner"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Wait for task deletion",
+      "ResultPath": null
+    },
+    "Wait for task deletion": {
+      "Type": "Wait",
+      "Seconds": 300,
+      "Next": "Delete Instance"
+    },
+    "Delete Instance": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:sa-east-1:123456789012:function:DMS-intake:$LATEST",
+        "Payload": {
+          "step": "delete_instance",
+          "owner.$": "$.owner"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultPath": null,
+      "End": true
+    }
+  }
+}
